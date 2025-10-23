@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Jeu Mémo – Octobre Rose</title>
+  <style>
+    :root {
+      --pink-50: #fff1f6;
+      --pink-100: #ffd7e8;
+      --pink-200: #ffb0cf;
+      --pink-300: #ff89b7;
+      --pink-400: #ff61a0;
+      --pink-500: #ff3a88; /* principal */
+      --pink-600: #e42574;
+      --pink-700: #b81c5c;
+      --ink-900: #1a1a1a;
+      --bg: #fff;
+      --card: #ffffff;
+      --shadow: 0 10px 20px rgba(0,0,0,.08);
+      --radius: 18px;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: linear-gradient(140deg, var(--pink-50), #ffffff);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--ink-900);
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: start;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+      line-height: 1.2;
+      letter-spacing: 0.2px;
+    }
+    .subtitle { color: #5b5b5b; font-size: 0.98rem; }
+
+    .panel {
+      background: var(--bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .stat { background: var(--pink-100); color: #81234d; border-radius: 999px; padding: 8px 14px; font-weight: 600; }
+    .btn {
+      appearance: none; border: 0; cursor: pointer; font-weight: 700;
+      background: var(--pink-500); color: #fff; padding: 10px 14px; border-radius: 12px; box-shadow: var(--shadow);
+      transition: transform .04s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); box-shadow: 0 3px 8px rgba(0,0,0,.15); }
+    .btn.secondary { background: #111; color: #fff; }
+
+    .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    /* Grille de cartes */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 14px;
+    }
+    @media (max-width: 980px) { .grid { grid-template-columns: repeat(4, minmax(100px, 1fr)); } }
+    @media (max-width: 640px) { .grid { grid-template-columns: repeat(3, minmax(92px, 1fr)); } }
+
+    .card {
+      perspective: 1000px;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 3/4;
+    }
+    .card button { /* rendre toute la carte interactive et accessible */
+      background: transparent; border: 0; padding: 0; width: 100%; height: 100%;
+      border-radius: var(--radius);
+      display: block;
+    }
+    .card-inner {
+      position: relative; width: 100%; height: 100%; border-radius: var(--radius);
+      transform-style: preserve-3d; transition: transform .5s ease;
+    }
+    .card.is-flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
+
+    .card-face {
+      position: absolute; inset: 0; backface-visibility: hidden; border-radius: var(--radius); overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .card-front { /* dos de carte */
+      background: conic-gradient(from 180deg at 60% 40%, var(--pink-100), #fff 40%, var(--pink-200));
+      border: 2px solid var(--pink-300);
+      display: grid; place-items: center;
+    }
+    .card-front .badge {
+      display: grid; place-items: center; gap: 6px;
+      text-align: center;
+    }
+    .card-front .qmark { font-size: 38px; font-weight: 900; color: var(--pink-700); }
+    .ribbon {
+      width: 44px; height: 44px; display: inline-block;
+      background: linear-gradient(135deg, var(--pink-400), var(--pink-600));
+      clip-path: path('M24 2c6 0 16 16 16 22s-7 12-12 12-12-6-12-12S18 2 24 2Z');
+      border-radius: 8px;
+      mask: radial-gradient(circle at 40% 30%, #000 45%, transparent 46%) top left/50% 50% no-repeat,
+            radial-gradient(circle at 60% 70%, #000 45%, transparent 46%) bottom right/50% 50% no-repeat;
+    }
+
+    .card-back { /* face visible (texte) */
+      transform: rotateY(180deg);
+      background: #fff;
+      border: 2px solid var(--pink-400);
+      display: grid; grid-template-rows: auto 1fr; gap: 10px; padding: 12px;
+    }
+    .card-back .title {
+      font-weight: 800; font-size: 0.95rem; color: var(--pink-700);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-back .msg { font-size: 0.92rem; line-height: 1.25; }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px; font-size: .85rem;
+      background: var(--pink-100); color: #7c1b4b; border: 1px solid var(--pink-300);
+      padding: 6px 10px; border-radius: 999px;
+    }
+
+    .footer-note { color: #555; font-size: .9rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+    /* Mode contraste élevé */
+    .contrast :root {}
+    .contrast .card-front { background: #000; border-color: #fff; }
+    .contrast .card-front .qmark { color: #fff; }
+    .contrast .card-back { background: #fff; border-color: #000; }
+    .contrast .stat { background: #111; color: #fff; }
+    .contrast .btn { background: #000; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Jeu Mémo – <span style="color:var(--pink-600)">Octobre Rose</span></h1>
+        <p class="subtitle">Retourne les cartes et trouve les <strong>paires</strong>. Chaque carte partage un message de sensibilisation au <strong>cancer du sein</strong>.</p>
+      </div>
+      <div class="toolbar">
+        <button class="btn" id="restart" aria-label="Recommencer la partie">↺ Rejouer</button>
+        <button class="btn secondary" id="toggle-contrast" aria-pressed="false">Contraste élevé</button>
+      </div>
+    </header>
+
+    <div class="panel" role="region" aria-label="Statistiques de la partie">
+      <div class="stat"><span aria-hidden="true">⏱️</span> Temps : <span id="time">00:00</span></div>
+      <div class="stat"><span aria-hidden="true">🃏</span> Coups : <span id="moves">0</span></div>
+      <div class="stat"><span aria-hidden="true">🎯</span> Paires : <span id="pairs">0</span>/<span id="total">0</span></div>
+      <div class="pill" title="Astuce">Conseil : le <strong>premier clic</strong> lance le chrono.</div>
+    </div>
+
+    <main>
+      <section class="grid" id="grid" aria-label="Plateau de jeu"></section>
+      <div class="sr-only" aria-live="polite" id="live"></div>
+    </main>
+
+    <p class="footer-note">Ce jeu est autonome (HTML, CSS et JS inclus). Vous pouvez l’enregistrer et l’ouvrir hors‑ligne. — <em>Octobre Rose : penser dépistage, soutien et information.</em></p>
+  </div>
+
+  <!-- Modale de victoire -->
+  <dialog id="win" style="border: none; border-radius: 16px; padding: 0; box-shadow: var(--shadow);">
+    <div style="padding: 20px 20px 16px; max-width: 420px;">
+      <h2 style="margin: 0 0 8px;">Bravo ! 🎉</h2>
+      <p style="margin: 0 0 12px;">Tu as trouvé toutes les paires.</p>
+      <div style="display:flex; gap:8px; flex-wrap: wrap; margin-bottom: 14px;">
+        <span class="stat">⏱️ <span id="win-time">00:00</span></span>
+        <span class="stat">🃏 <span id="win-moves">0</span> coups</span>
+      </div>
+      <form method="dialog" style="display:flex; gap:8px; justify-content:flex-end;">
+        <button class="btn secondary">Fermer</button>
+        <button class="btn" id="win-restart">Rejouer</button>
+      </form>
+    </div>
+  </dialog>
+
+  <script>
+    const MESSAGES = [
+      { key: 'depistage', title: 'Dépistage', text: 'Le dépistage sauve des vies : mammographie tous les 2 ans dès 50 ans.' },
+      { key: 'signes', title: 'Signes d’alerte', text: 'Consultez si vous remarquez une boule, douleur ou changement du sein.' },
+      { key: 'auto', title: 'Auto‑examen', text: 'L’auto‑examen mensuel aide à mieux connaître son corps.' },
+      { key: 'bouger', title: 'Bouger', text: 'Bouger 30 min/jour réduit le risque de cancer.' },
+      { key: 'alcool', title: 'Alcool', text: 'Limiter l’alcool diminue le risque de cancer du sein.' },
+      { key: 'allaiter', title: 'Allaitement', text: 'Allaiter peut réduire le risque de cancer du sein.' },
+      { key: 'famille', title: 'Antécédents', text: 'Antécédents familiaux ? Parlez‑en à votre médecin.' },
+      { key: 'poids', title: 'Équilibre', text: 'Un poids équilibré est protecteur face à certains cancers.' },
+      { key: 'hommes', title: 'Hommes', text: 'Certains cancers du sein touchent aussi les hommes.' },
+      { key: 'tabac', title: 'Tabac', text: 'Le tabac augmente le risque de nombreux cancers.' },
+      { key: 'suivi', title: 'Suivi', text: 'Après un traitement, le suivi régulier est essentiel.' },
+      { key: 'soutien', title: 'Soutien', text: 'Le soutien psychologique compte autant que les soins.' }
+    ];
+
+    const gridEl = document.getElementById('grid');
+    const timeEl = document.getElementById('time');
+    const movesEl = document.getElementById('moves');
+    const pairsEl = document.getElementById('pairs');
+    const totalEl = document.getElementById('total');
+    const liveEl = document.getElementById('live');
+    const restartBtn = document.getElementById('restart');
+    const toggleContrastBtn = document.getElementById('toggle-contrast');
+
+    const winDialog = document.getElementById('win');
+    const winTime = document.getElementById('win-time');
+    const winMoves = document.getElementById('win-moves');
+    const winRestart = document.getElementById('win-restart');
+
+    let firstCard = null, secondCard = null, lock = false;
+    let moves = 0, pairs = 0, totalPairs = 0;
+    let timer = null, seconds = 0, started = false;
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60).toString().padStart(2, '0');
+      const r = (s % 60).toString().padStart(2, '0');
+      return `${m}:${r}`;
+    }
+    function startTimer() {
+      if (started) return;
+      started = true;
+      timer = setInterval(() => { seconds++; timeEl.textContent = formatTime(seconds); }, 1000);
+    }
+    function stopTimer() {
+      clearInterval(timer); timer = null; started = false; seconds = seconds; // keep seconds
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function buildDeck() {
+      const deck = [];
+      MESSAGES.forEach((m) => {
+        const a = { ...m, id: m.key + '-A' };
+        const b = { ...m, id: m.key + '-B' };
+        deck.push(a, b);
+      });
+      return shuffle(deck);
+    }
+
+    function makeCard(data) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.dataset.key = data.key;
+
+      const button = document.createElement('button');
+      button.setAttribute('type', 'button');
+      button.setAttribute('aria-label', `Carte dos. Message: ${data.title}`);
+      button.setAttribute('aria-pressed', 'false');
+      button.addEventListener('click', () => onFlip(card));
+      button.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onFlip(card); }
+      });
+
+      const inner = document.createElement('div');
+      inner.className = 'card-inner';
+
+      const front = document.createElement('div');
+      front.className = 'card-face card-front';
+      front.innerHTML = `<div class="badge">\
+        <span class="ribbon" aria-hidden="true"></span>\
+        <div class="qmark" aria-hidden="true">?</div>\
+      </div>`;
+
+      const back = document.createElement('div');
+      back.className = 'card-face card-back';
+      back.innerHTML = `<div class="title">🎗️ ${escapeHtml(data.title)}</div>\
+        <div class="msg">${escapeHtml(data.text)}</div>`;
+
+      inner.appendChild(front); inner.appendChild(back);
+      button.appendChild(inner); card.appendChild(button);
+      return card;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+    }
+
+    function reset() {
+      // stats
+      firstCard = secondCard = null; lock = false;
+      moves = 0; pairs = 0; totalPairs = MESSAGES.length;
+      movesEl.textContent = '0';
+      pairsEl.textContent = '0';
+      totalEl.textContent = totalPairs.toString();
+      // timer
+      if (timer) clearInterval(timer);
+      seconds = 0; started = false; timeEl.textContent = '00:00';
+      // grid
+      gridEl.innerHTML = '';
+      buildDeck().forEach(item => gridEl.appendChild(makeCard(item)));
+      live(`Nouvelle partie. ${totalPairs} paires à trouver.`);
+    }
+
+    function onFlip(card) {
+      if (lock || card.classList.contains('matched')) return;
+      startTimer();
+      const already = card.classList.contains('is-flipped');
+      if (already) return; // ne pas retourner une carte déjà visible
+
+      card.classList.add('is-flipped');
+      card.querySelector('button').setAttribute('aria-pressed', 'true');
+
+      if (!firstCard) {
+        firstCard = card;
+        return;
+      }
+      if (firstCard === card) return; // même carte
+
+      secondCard = card; moves++; movesEl.textContent = moves.toString();
+      const match = firstCard.dataset.key === secondCard.dataset.key;
+
+      if (match) {
+        firstCard.classList.add('matched');
+        secondCard.classList.add('matched');
+        pairs++; pairsEl.textContent = pairs.toString();
+        live(`Bien joué ! Paire « ${firstCard.dataset.key} ».`);
+        firstCard = secondCard = null;
+        if (pairs === totalPairs) {
+          stopTimer();
+          winTime.textContent = formatTime(seconds);
+          winMoves.textContent = moves.toString();
+          try { winDialog.showModal(); } catch { winDialog.setAttribute('open', ''); }
+        }
+      } else {
+        lock = true;
+        setTimeout(() => {
+          [firstCard, secondCard].forEach(c => {
+            c.classList.remove('is-flipped');
+            c.querySelector('button').setAttribute('aria-pressed', 'false');
+          });
+          firstCard = secondCard = null; lock = false;
+        }, 800);
+      }
+    }
+
+    function live(msg) { liveEl.textContent = msg; }
+
+    restartBtn.addEventListener('click', reset);
+    winRestart.addEventListener('click', (e) => { e.preventDefault(); reset(); winDialog.close?.(); });
+
+    toggleContrastBtn.addEventListener('click', () => {
+      const pressed = toggleContrastBtn.getAttribute('aria-pressed') === 'true';
+      toggleContrastBtn.setAttribute('aria-pressed', String(!pressed));
+      document.body.classList.toggle('contrast');
+    });
+
+    // Init
+    reset();
+  </script>
+</body>
+</html>
